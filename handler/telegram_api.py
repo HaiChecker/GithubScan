@@ -17,7 +17,7 @@ from db.models import HConfig
 config = configparser.ConfigParser()
 config.read('config.ini')
 
-apihelper.proxy = {'https': 'http://127.0.0.1:1087'}
+apihelper.proxy = {'https': config['WEB']['proxy']}
 
 bot = telebot.TeleBot(config['TELEGRAM']['token'], threaded=False)
 
