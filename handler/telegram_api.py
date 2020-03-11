@@ -199,10 +199,9 @@ def message(msg):
 
 def init():
     try:
-        me = bot.get_me()
-        return True
-    except:
-        return False
+        return bot.get_me()
+    except Exception as e:
+        return None
 
 
 thread = threading.Thread(target=bot.polling)

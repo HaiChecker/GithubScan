@@ -203,9 +203,8 @@ if __name__ == '__main__':
     if config['TELEGRAM']['token']:
         telegramResult = telegram_api.init()
         if telegramResult:
-            print('Telegram 启动成功，开始监听')
             telegram_api.run()
-
+            print('Telegram 机器人:%s 工作中' % telegramResult.first_name)
         else:
             print('Telegram 启动失败')
 
