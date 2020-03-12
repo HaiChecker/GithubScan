@@ -61,7 +61,7 @@ class Task(threading.Thread):
                 break
 
             taskUrl = 'https://github.com/search?q=%s&type=Code&p=%s' % (self.taskData.query.replace(' ', '+'), i)
-            resultList = g.get(taskUrl)
+            resultList = g.get(taskUrl, r=True)
 
             dom_tree_code = etree.HTML(resultList.text)
             # 获取存在信息泄露的链接地址
@@ -73,7 +73,7 @@ class Task(threading.Thread):
                 if self.taskData.openUrl == 1:
                     # 打开内页探索模式
                     url = 'https://raw.githubusercontent.com' + url.replace('/blob', '')
-                    insideResult = g.get(url)
+                    insideResult = g.get(url, r=True)
                     result = payloadPatterns(patterns, insideResult.text, url)
                     result['type'] = 'inside'
                     result['taskId'] = self.taskData.id

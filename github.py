@@ -25,12 +25,19 @@ class Github(object):
             return result
 
     def get(self, url, **kwargs):
-        result = self.session.get(url, **kwargs)
-        if result.text.find('Sign in to GitHub · GitHub') > 0:
-            self.session = self.login()
-            return self.get(url, **kwargs)
-        else:
-            return result
+        try:
+            result = self.session.get(url, **kwargs)
+            if result.text.find('Sign in to GitHub · GitHub') > 0:
+                self.session = self.login()
+                return self.get(url, **kwargs)
+            else:
+                return result
+        except:
+            if kwargs.get('r', False):
+                print('请求失败,URL:%s' % url)
+                return None
+            else:
+                return self.get(url, **kwargs)
 
     def reLogin(self):
         self._instance = None
