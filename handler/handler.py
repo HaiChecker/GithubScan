@@ -6,14 +6,26 @@ from queue import Queue
 
 from sqlalchemy.orm import sessionmaker
 
+from conversion import conversion
 from db import models
-from db.models import HHit, HConfig
+from db.models import HHit, HConfig, HPayload
 from handler import telegram_api
 
 q = Queue(1024)
 
 
 class Handler(threading.Thread):
+    plugins = {}
+
+    def getPluginName(self, payloadId):
+        if payloadId in Handler.plugins:
+            return Handler.plugins[payloadId]
+        else:
+            try:
+                payload = self.getDbSession().query(HPayload).filter(HPayload.id).one()
+                return payload.plugin
+            except:
+                return None
 
     def getDbSession(self):
         if self._session is None:
@@ -46,15 +58,19 @@ class Handler(threading.Thread):
                                 md5Hash.update(str(taskId).encode('utf-8'))
                                 md5Hash.update(hit.encode('utf-8'))
                                 hashStr = md5Hash.hexdigest()
-                                hitCount = self.getDbSession().query(HHit) \
-                                    .filter(HHit.hitHash == hashStr) \
-                                    .count()
-                                if hitCount <= 0:
-                                    hit = HHit(tid=taskId, pid=payloadId, url=url, hit=hit, hitHash=hashStr)
-                                    self.getDbSession().add(hit)
-                                    self.getDbSession().commit()
-                                    if notify.v == 'Y':
-                                        telegram_api.sendNotify(hit)
+
+                                result = conversion.conversion.hit(hashStr, payloadId)
+                                if result is not None:
+                                    hitCount = self.getDbSession().query(HHit) \
+                                        .filter(HHit.hitHash == hashStr) \
+                                        .count()
+                                    if hitCount <= 0:
+
+                                        hit = HHit(tid=taskId, pid=payloadId, url=url, hit=hit, hitHash=hashStr)
+                                        self.getDbSession().add(hit)
+                                        self.getDbSession().commit()
+                                        if notify.v == 'Y':
+                                            telegram_api.sendNotify(hit)
 
 
 

@@ -52,10 +52,13 @@ def add_payload():
         if 'payload' in r and 'title' in r:
             payload = r['payload']
             title = r['title']
+            plugin = r['plugin']
             payloadCount = session.query(HPayload).filter(HPayload.title == title).count()
             if payloadCount <= 0:
-                payloads.append(HPayload(payload=payload, title=title))
+                payloads.append(HPayload(payload=payload, title=title, plugin=plugin))
     if len(payloads) > 0:
+        session.add_all(payloads)
+        session.commit()
         return result.successMsg('添加Payload成功')
     else:
         return result.fail('没有有效Payload被添加')

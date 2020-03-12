@@ -31,10 +31,11 @@ class Task(threading.Thread):
         threading.Thread.__init__(self, name='Task:%d' % taskData.id)
         self.taskData = taskData
         self.payloads = payloads
-        self._running = True
+        self._running = False
         self.exchange = exchange
 
     def run(self):
+        self._running = True
         print('开始执行任务:', self.taskData.id)
         self.func()
         while self._running:

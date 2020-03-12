@@ -42,6 +42,7 @@ class HPayload(Base):
     id = Column(INTEGER(11), primary_key=True, comment='payloaId', autoincrement=True)
     payload = Column(Text(), comment='正则匹配（空代表只匹配查询条件）')
     title = Column(VARCHAR(255), nullable=False, comment='说明')
+    plugin = Column(VARCHAR(20), nullable=False, comment='插件名称')
 
     # 方式一
     def to_dict(self):
@@ -105,7 +106,7 @@ def initData(engine):
 
 def createSqlite(dbName):
     # 初始化数据库连接:
-    engine = create_engine('sqlite:///%s.db' % dbName)
+    engine = create_engine('sqlite:///%s.db?check_same_thread=False' % dbName)
     metadata.create_all(engine)
     initData(engine)
     return engine

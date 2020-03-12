@@ -78,22 +78,6 @@ def ethprivate2eosprivateandpublickey(private_key):
     return eos_private_key, address
 
 
-def verification(privateKeyStr):
-    try:
-        privateKey = WIF2privateKey(privateKeyStr)
-        # 公钥
-        public_key = privateKey2publicKeyCompress(privateKey)
-        # 地址
-        address = publicKey2address(public_key)
-
-        result = requests.post('https://api.eossweden.org/v1/history/get_key_accounts', json={'public_key': address})
-        resultJson = json.loads(result.text)
-        if 'account_names' in resultJson and len(resultJson['account_names']) > 0:
-            return "\n".join(resultJson['account_names'])
-    except:
-        return None
-
-
 if __name__ == '__main__':
     privateKey = WIF2privateKey('5KKgxmCZkaFYXyiiWcAxet4sqTeoLQMroZhuZLiajXGEHSpfsh3')
     # 公钥
@@ -104,3 +88,27 @@ if __name__ == '__main__':
     # print("EOS私钥：", wif_private_key)
     # print("EOS公钥：", public_key)
     print("EOS地址：", address)
+
+
+class EosPlugin:
+
+    def run(self, data):
+        try:
+            privateKey = WIF2privateKey(data)
+            # 地址
+            address = publicKey2address(privateKey2publicKeyCompress(privateKey))
+            result = requests.post('https://api.eossweden.org/v1/history/get_key_accounts',
+                                   json={'public_key': address})
+            resultJson = json.loads(result.text)
+            if 'account_names' in resultJson and len(resultJson['account_names']) > 0:
+                return "\n".join(resultJson['account_names'])
+        except:
+            return None
+
+
+def getPluginClass():
+    return EosPlugin
+
+
+def desc():
+    return "EOS 私钥匹配用户名插件"
