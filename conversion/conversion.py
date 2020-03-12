@@ -29,9 +29,11 @@ class Conversion:
     def hit(self, data, plugin_name, url):
         Conversion.con.acquire()
         # 等待插件加载
+        result = None
         if plugin_name in self.plugins:
-            return self.plugins[plugin_name]['plugin'].run(data, url)
+            result = self.plugins[plugin_name]['plugin'].run(data, url)
         Conversion.con.release()
+        return result
 
 
 conversion = Conversion()
