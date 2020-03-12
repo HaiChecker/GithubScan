@@ -1,4 +1,5 @@
 import configparser
+import os
 
 from sqlalchemy import or_
 from sqlalchemy.orm import sessionmaker
@@ -15,6 +16,10 @@ from handler.handler import Handler
 from task import Task
 
 app = Flask(__name__)
+
+import logging
+log = logging.getLogger('app.scan')
+log.setLevel(logging.NOTSET)
 
 # 处理线程开启
 handler = Handler()
@@ -197,7 +202,16 @@ def add_task():
 
 
 if __name__ == '__main__':
-    print('启动Github扫描啦')
+    print("""
+        
+ ██████╗████████████╗  ████╗   ████████╗███████╗██████╗█████╗███╗   ██╗
+██╔════╝██╚══██╔══██║  ████║   ████╔══████╔════██╔════██╔══██████╗  ██║
+██║  █████║  ██║  █████████║   ████████╔█████████║    █████████╔██╗ ██║
+██║   ████║  ██║  ██╔══████║   ████╔══██╚════████║    ██╔══████║╚██╗██║
+╚██████╔██║  ██║  ██║  ██╚██████╔██████╔███████╚████████║  ████║ ╚████║
+ ╚═════╝╚═╝  ╚═╝  ╚═╝  ╚═╝╚═════╝╚═════╝╚══════╝╚═════╚═╝  ╚═╚═╝  ╚═══╝
+                                                                       
+    """)
     config = configparser.ConfigParser()
     config.read('config.ini')
     port = config['WEB']['port']
@@ -216,5 +230,5 @@ if __name__ == '__main__':
     current_app.tasks = {}
     current_app.taskSendExchange = exchange.Exchange()
     current_app.taskReceiveExchange = exchange.Exchange()
-
+    os.environ['FLASK_ENV'] = 'deployment'
     app.run(host=host, port=port, use_reloader=False)

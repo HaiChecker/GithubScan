@@ -1,8 +1,10 @@
 import base64
+import hashlib
 import os
 import re
 import threading
 import time
+from _md5 import md5
 
 from lxml import etree
 from flask import current_app
@@ -39,7 +41,6 @@ class Task(threading.Thread):
 
     def run(self):
         self._running = True
-        print('开始执行任务:', self.taskData.id)
         self.func()
         while self._running:
             if self.taskData.pollingPage > 0 and self._running:
@@ -67,12 +68,14 @@ class Task(threading.Thread):
             resultList = None
             try:
                 resultList = g.get(taskUrl, r=True)
+                if resultList[0] is None:
+                    telegram_api.sendMessage('❌ 分页数据获取异常，已停止任务\n<code>%s</code>' % resultList[1])
             except Exception as e:
                 telegram_api.sendMessage('❌ 分页数据获取异常，已停止任务\n<code>%s</code>' % e.__str__())
                 self._running = False
                 return
 
-            dom_tree_code = etree.HTML(resultList.text)
+            dom_tree_code = etree.HTML(resultList[0].text)
             # 获取存在信息泄露的链接地址
             urls = dom_tree_code.xpath('//div[@class="f4 text-normal"]/a/@href')
             contents = dom_tree_code.xpath(
@@ -86,27 +89,32 @@ class Task(threading.Thread):
                     try:
                         insideResult = g.get(url, r=True)
                     except Exception as e:
-                        telegram_api.sendMessage('❌ 分页数据获取异常，已停止任务\n<code>%s</code>' % e.__str__())
+                        telegram_api.sendMessage('❌ 内页数据获取异常，已停止任务\n<code>%s</code>' % e.__str__())
                         self._running = False
                         return
 
-                fileName = 'cache/' + base64.b64encode(url).encode('utf-8')
-                if not os.path.exists(fileName):
-                    f = open(fileName, 'w')
-                    f.write(insideResult)
-                    f.close()
-                result = payloadPatterns(patterns, insideResult.text, url)
-                result['type'] = 'inside'
-                result['taskId'] = self.taskData.id
-                self.exchange.send(result)
-            else:
-                fileName = 'cache/' + base64.b64encode(url).encode('utf-8')
-                if not os.path.exists(fileName):
-                    f = open(fileName, 'w')
-                    f.write(contents[i])
-                    f.close()
-                # 外页探索模式
-                self.exchange.send({'type': 'outside', 'url': url, 'taskId': self.taskData.id})
+                    hl = hashlib.md5()
+                    hl.update(url.encode('utf-8'))
+                    fileName = 'cache/' + hl.hexdigest()
+                    if not os.path.exists(fileName):
+                        f = open(fileName, 'w')
+                        f.write(insideResult[0].text)
+                        f.close()
+                    result = payloadPatterns(patterns, insideResult[0].text, url)
+                    result['type'] = 'inside'
+                    result['taskId'] = self.taskData.id
+                    self.exchange.send(result)
+                else:
+
+                    hl = hashlib.md5()
+                    hl.update(url.encode('utf-8'))
+                    fileName = 'cache/' + hl.hexdigest()
+                    if not os.path.exists(fileName):
+                        f = open(fileName, 'w')
+                        f.write(contents[i])
+                        f.close()
+                    # 外页探索模式
+                    self.exchange.send({'type': 'outside', 'url': url, 'taskId': self.taskData.id})
 
     # 停止任务
     def stop(self):

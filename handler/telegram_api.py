@@ -13,6 +13,7 @@ from telebot import types
 
 import telebot
 
+import github
 from conversion import conversion
 from db import models
 from db.models import HConfig
@@ -207,7 +208,7 @@ def sendMessage(msg):
     chat = session.query(HConfig).filter(HConfig.k == 'chat_id').one()
 
     if int(chat.v) != 0:
-        bot.send_message(chat.v, msg,parse_mode='HTML')
+        bot.send_message(chat.v, msg, parse_mode='HTML')
 
 
 @bot.message_handler(commands=['plugin'])
@@ -342,6 +343,8 @@ def message(msg):
             bot.send_message(msg.chat.id, payloadList(), parse_mode="Markdown")
         elif msg.text == '🛠 开启/关闭通知':
             bot.send_message(msg.chat.id, notify(msg.chat.id), parse_mode="Markdown")
+        elif msg.text.startswith('code'):
+            github.Github().queue.put(msg.text)
         else:
             try:
                 j = json.loads(msg.text)

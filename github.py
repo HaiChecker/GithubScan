@@ -1,12 +1,17 @@
 import configparser
+import time
+from queue import Queue
 from time import sleep
 from lxml import etree
 
 import requests
 
+from handler import telegram_api
+
 
 class Github(object):
     _instance = None
+    queue = Queue(3)
 
     def __new__(cls, *args, **kw):
         if cls._instance is None:
@@ -26,7 +31,7 @@ class Github(object):
 
     def get(self, url, **kwargs):
         try:
-            result = self.session.get(url, **kwargs)
+            result = self.session.get(url)
             if result.text.find('Sign in to GitHub · GitHub') > 0:
                 self.session = self.login()
                 return self.get(url, **kwargs)
@@ -54,7 +59,7 @@ class Github(object):
         # 初始化参数
         login_url = 'https://github.com/login'
         session_url = 'https://github.com/session'
-
+        verified_device = 'https://github.com/sessions/verified-device'
         try:
             # 获取session
             s = requests.session()
@@ -70,7 +75,19 @@ class Github(object):
             }
             sleep(0.5)
             # 发送数据并登陆
-            s.post(session_url, data=user_data)
+            loginResult = s.post(session_url, data=user_data)
+            if loginResult.headers.get('Location') == 'https://github.com/sessions/verified-device':
+                telegram_api.sendMessage('Github 登录异常，您已收到一封登录邮件。验证码输入格式:code-123456 / 重新获取格式:code-new')
+                tokenGet = s.get(verified_device)
+                tokenGetDom = etree.HTML(resp)
+                key = tokenGetDom.xpath('//input[@name="authenticity_token"]/@value')
+                codeFunc = Github.queue.get()
+                codeFuncs = codeFunc.split("-")
+                if 'new' != codeFuncs[1]:
+                    res = s.post({'authenticity_token': key, 'otp': codeFuncs[1]})
+                    if res.status_code == 200 or res.text.find('Incorrect verification code provided.') > -1:
+                        telegram_api.sendMessage('验证码错误，尝试重新登录')
+
             sleep(0.5)
             r = s.get('https://github.com/settings/profile')
             rs = r.text.find('Sign in to GitHub · GitHub')
