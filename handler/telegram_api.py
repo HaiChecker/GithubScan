@@ -128,7 +128,7 @@ def sendNotify(hit):
     chat = session.query(HConfig).filter(HConfig.k == 'chat_id').one()
 
     if chat.v != 0:
-        result = conversion.hit(hit)
+        result = conversion.conversion.hit(hit)
         if result is not None:
             bot.send_message(chat.v, result)
 
@@ -185,6 +185,9 @@ def startMessage(msg):
         else:
             bot.send_message(msg.chat.id, '⚠️您没有权限使用此服务哦')
 
+
+def send(msg):
+    bot.send_message()
 
 @bot.message_handler()
 def message(msg):

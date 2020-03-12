@@ -31,11 +31,10 @@ class Github(object):
                 self.session = self.login()
                 return self.get(url, **kwargs)
             else:
-                return result
-        except:
-            if kwargs.get('r', False):
-                print('请求失败,URL:%s' % url)
-                return None
+                return result, ''
+        except Exception as e:
+            if not kwargs.get('r', False):
+                return None, '请求失败,URL:%s 错误信息:%s' % (url, e.__str__())
             else:
                 return self.get(url, **kwargs)
 
