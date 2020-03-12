@@ -26,8 +26,7 @@ if config['WEB']['proxy']:
 apihelper.API_URL = config['TELEGRAM']['apiUrl']
 
 bot = telebot.TeleBot(config['TELEGRAM']['token'])
-logger = telebot.logger
-telebot.logger.setLevel(logging.DEBUG)  # Outputs debug messages to console.
+
 addTaskJson = json.loads(
     '{"func":"addTask","data":{"query":"eos wallet","startPage":1,"endPage":100,"type":"polling","cycle":3600,'
     '"pollingPage":6,"run":true, '
