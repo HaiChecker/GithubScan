@@ -59,7 +59,7 @@ class Handler(threading.Thread):
                                 md5Hash.update(hit.encode('utf-8'))
                                 hashStr = md5Hash.hexdigest()
 
-                                result = conversion.conversion.hit(hashStr, payloadId)
+                                result = conversion.conversion.hit(hashStr, payloadId, url)
                                 if result is not None:
                                     hitCount = self.getDbSession().query(HHit) \
                                         .filter(HHit.hitHash == hashStr) \

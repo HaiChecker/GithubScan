@@ -1,3 +1,5 @@
+import base64
+import os
 import re
 import threading
 import time
@@ -6,6 +8,7 @@ from lxml import etree
 from flask import current_app
 
 import github
+from handler import telegram_api
 
 
 def payloadPatterns(patterns, content, url):
@@ -61,7 +64,13 @@ class Task(threading.Thread):
                 break
 
             taskUrl = 'https://github.com/search?q=%s&type=Code&p=%s' % (self.taskData.query.replace(' ', '+'), i)
-            resultList = g.get(taskUrl, r=True)
+            resultList = None
+            try:
+                resultList = g.get(taskUrl, r=True)
+            except Exception as e:
+                telegram_api.sendMessage('❌ 分页数据获取异常，已停止任务\n<code>%s</code>' % e.__str__())
+                self._running = False
+                return
 
             dom_tree_code = etree.HTML(resultList.text)
             # 获取存在信息泄露的链接地址
@@ -73,14 +82,31 @@ class Task(threading.Thread):
                 if self.taskData.openUrl == 1:
                     # 打开内页探索模式
                     url = 'https://raw.githubusercontent.com' + url.replace('/blob', '')
-                    insideResult = g.get(url, r=True)
-                    result = payloadPatterns(patterns, insideResult.text, url)
-                    result['type'] = 'inside'
-                    result['taskId'] = self.taskData.id
-                    self.exchange.send(result)
-                else:
-                    # 外页探索模式
-                    self.exchange.send({'type': 'outside', 'url': url, 'taskId': self.taskData.id})
+                    insideResult = None
+                    try:
+                        insideResult = g.get(url, r=True)
+                    except Exception as e:
+                        telegram_api.sendMessage('❌ 分页数据获取异常，已停止任务\n<code>%s</code>' % e.__str__())
+                        self._running = False
+                        return
+
+                fileName = 'cache/' + base64.b64encode(url).encode('utf-8')
+                if not os.path.exists(fileName):
+                    f = open(fileName, 'w')
+                    f.write(insideResult)
+                    f.close()
+                result = payloadPatterns(patterns, insideResult.text, url)
+                result['type'] = 'inside'
+                result['taskId'] = self.taskData.id
+                self.exchange.send(result)
+            else:
+                fileName = 'cache/' + base64.b64encode(url).encode('utf-8')
+                if not os.path.exists(fileName):
+                    f = open(fileName, 'w')
+                    f.write(contents[i])
+                    f.close()
+                # 外页探索模式
+                self.exchange.send({'type': 'outside', 'url': url, 'taskId': self.taskData.id})
 
     # 停止任务
     def stop(self):

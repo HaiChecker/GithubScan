@@ -1,6 +1,9 @@
 import base64
 import configparser
 import json
+import logging
+import os
+import re
 import threading
 
 import requests
@@ -22,8 +25,9 @@ if config['WEB']['proxy']:
 
 apihelper.API_URL = config['TELEGRAM']['apiUrl']
 
-bot = telebot.TeleBot(config['TELEGRAM']['token'], threaded=False)
-
+bot = telebot.TeleBot(config['TELEGRAM']['token'])
+logger = telebot.logger
+telebot.logger.setLevel(logging.DEBUG)  # Outputs debug messages to console.
 addTaskJson = json.loads(
     '{"func":"addTask","data":{"query":"eos wallet","startPage":1,"endPage":100,"type":"polling","cycle":3600,'
     '"pollingPage":6,"run":true, '
@@ -133,9 +137,132 @@ def sendNotify(hit):
             bot.send_message(chat.v, result)
 
 
+@bot.callback_query_handler(func=lambda call: True)
+def callback_query(call):
+    if call.data == "plugin-load":
+        conversion.conversion.loadPlugins()
+        bot.answer_callback_query(call.id, "刷新插件成功")
+    elif call.data == "plugin-list":
+        plugins = os.listdir("conversion/plugins")
+        resultText = []
+        for plugin in plugins:
+            print(plugin)
+            if not plugin.endswith(".py") or plugin.startswith("_") or not plugin.startswith(
+                    'plugin') or plugin.find('_') == -1:
+                continue
+            try:
+                plugin_name = os.path.splitext(plugin)[0].split("_")[1]
+                fileVersion = '未导入'
+                if plugin_name in conversion.conversion.plugins:
+
+                    my_open = open('conversion/plugins/' + plugin, 'r')
+                    # 若文件不存在,报错，若存在，读取
+                    for eachline in my_open:
+                        str = eachline.strip()
+                        result = re.findall('<v>(.*)</v>', str)
+                        if len(result) > 0:
+                            fileVersion = result[0]
+                            break
+                    my_open.close()
+
+                    if fileVersion == '未导入':
+                        fileVersion = '版本异常'
+
+                runVersion = '未导入'
+                if plugin_name in conversion.conversion.plugins:
+                    str = conversion.conversion.plugins[plugin_name][
+                        'plugin'].version()
+                    print(str)
+                    result = re.findall('<v>(.*)</v>', str)
+                    if len(result) > 0:
+                        runVersion = result[0]
+
+                resultText.append('<code>%s 插件名:%s\t\t文件版本:%s\t\t运行版本:%s</code>' % (
+                    plugin_name, fileVersion, runVersion, '✅ ' if fileVersion == runVersion else '❌ '))
+
+            except Exception as e:
+                print('异常:%s' % e.__str__())
+                continue
+
+        if len(resultText) == 0:
+            bot.answer_callback_query(call.id, "❌ 您没有插件哦")
+            return
+        engine = models.getDb()
+        Session = sessionmaker(bind=engine)
+        session = Session()
+
+        chat = session.query(HConfig).filter(HConfig.k == 'chat_id').one()
+
+        if int(chat.v) != 0:
+            bot.answer_callback_query(call.id)
+            bot.send_message(chat.v, "\n\n".join(resultText), parse_mode="HTML")
+        else:
+            bot.answer_callback_query(call.id, "❌ 请打开通知")
+
+
+def sendMessage(msg):
+    engine = models.getDb()
+    Session = sessionmaker(bind=engine)
+    session = Session()
+
+    chat = session.query(HConfig).filter(HConfig.k == 'chat_id').one()
+
+    if int(chat.v) != 0:
+        bot.send_message(chat.v, msg,parse_mode='HTML')
+
+
+@bot.message_handler(commands=['plugin'])
+def pluginMessage(msg):
+    if msg.from_user.username == config['TELEGRAM']['receive']:
+        text = msg.text
+        entities = msg.entities
+        texts = text.split(" ")
+        if text == '/plugin' and len(entities) == 1 and entities[0].type == 'bot_command':
+            markup = types.InlineKeyboardMarkup()
+            refButton = types.InlineKeyboardButton('加载插件', callback_data='plugin-load')
+            listButton = types.InlineKeyboardButton('插件列表', callback_data='plugin-list')
+            markup.add(refButton, listButton)
+            bot.send_message(msg.chat.id, '🛠插件管理', reply_markup=markup)
+
+    else:
+        bot.send_message(msg.chat.id, '⚠️您没有权限使用此服务哦')
+
+
+def test_message(msg):
+    return msg.document.mime_type == 'text/x-python'
+
+
+def testPlugin(pluginStr):
+    pluginStr = pluginStr.decode(
+        'utf-8') + '\n\n\n\n\n' + "import json\nprint(json.dumps({'desc': desc(), 'result': getPluginClass().run(" \
+                                  "'test')})) "
+    try:
+        eval(pluginStr)
+        return True
+    except:
+        return False
+
+
+@bot.message_handler(content_types=['document'])
+def plugin(msg):
+    if not test_message(msg):
+        return
+    try:
+        bot.reply_to(msg, '❇️ 收到插件，正在验证中')
+        file_info = bot.get_file(msg.document.file_id)
+        file = bot.download_file(file_info.file_path)
+        testPlugin(file)
+        my_open = open('conversion/plugins/' + msg.document.file_name, 'w')
+        my_open.write(file.decode('utf-8'))
+        my_open.close()
+        bot.reply_to(msg, '✅ 插件导入成功')
+    except Exception as e:
+        print(e.__str__())
+        bot.reply_to(msg, '❌ 插件验证失败')
+
+
 @bot.message_handler(commands=['start'])
 def startMessage(msg):
-    print(msg.chat.id)
     if msg.chat.type == 'private':
         if msg.from_user.username == config['TELEGRAM']['receive']:
             text = msg.text
@@ -186,11 +313,13 @@ def startMessage(msg):
             bot.send_message(msg.chat.id, '⚠️您没有权限使用此服务哦')
 
 
-def send(msg):
-    bot.send_message()
+# @bot.message_handler(content_types=['file'])
+# def file(msg):
+#     print('msg:', msg)
 
 @bot.message_handler()
 def message(msg):
+    print(msg)
     if msg.chat.type == 'private':
         if msg.text == '👹 添加任务':
             bot.send_message(msg.chat.id,

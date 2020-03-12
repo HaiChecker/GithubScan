@@ -78,21 +78,21 @@ def ethprivate2eosprivateandpublickey(private_key):
     return eos_private_key, address
 
 
-if __name__ == '__main__':
-    privateKey = WIF2privateKey('5KKgxmCZkaFYXyiiWcAxet4sqTeoLQMroZhuZLiajXGEHSpfsh3')
-    # 公钥
-    public_key = privateKey2publicKeyCompress(privateKey)
-    # 地址
-    address = publicKey2address(public_key)
-    # print("原始私钥：", private_key)
-    # print("EOS私钥：", wif_private_key)
-    # print("EOS公钥：", public_key)
-    print("EOS地址：", address)
+# if __name__ == '__main__':
+#     privateKey = WIF2privateKey('5KKgxmCZkaFYXyiiWcAxet4sqTeoLQMroZhuZLiajXGEHSpfsh3')
+#     # 公钥
+#     public_key = privateKey2publicKeyCompress(privateKey)
+#     # 地址
+#     address = publicKey2address(public_key)
+#     # print("原始私钥：", private_key)
+#     # print("EOS私钥：", wif_private_key)
+#     # print("EOS公钥：", public_key)
+#     print("EOS地址：", address)
 
 
 class EosPlugin:
 
-    def run(self, data):
+    def run(self, data, url):
         try:
             privateKey = WIF2privateKey(data)
             # 地址
@@ -105,10 +105,12 @@ class EosPlugin:
         except:
             return None
 
+    def desc(self):
+        return "EOS 私钥匹配用户名插件"
+
+    def version(self):
+        return '<v>1.0.0</v>'
+
 
 def getPluginClass():
-    return EosPlugin
-
-
-def desc():
-    return "EOS 私钥匹配用户名插件"
+    return EosPlugin()
