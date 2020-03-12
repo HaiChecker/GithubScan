@@ -42,7 +42,7 @@ class Github(object):
             if not kwargs.get('r', False):
                 return None, '请求失败,URL:%s 错误信息:%s' % (url, e.__str__())
             else:
-                error = kwargs.get('error', 0)
+                error = kwargs.get('error')
                 if error > 5:
                     raise Exception(e.__str__())
                 return self.get(url=url, error=error + 1, **kwargs)
