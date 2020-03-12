@@ -104,6 +104,8 @@ class Task(threading.Thread):
                     result['type'] = 'inside'
                     result['taskId'] = self.taskData.id
                     self.exchange.send(result)
+                    # 内页数据延迟半秒获取
+                    time.sleep(0.5)
                 else:
 
                     hl = hashlib.md5()
