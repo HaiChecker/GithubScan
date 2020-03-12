@@ -39,7 +39,7 @@ class Github(object):
                 return result, ''
         except Exception as e:
             # print('请求失败,URL:%s 错误信息:%s' % (url, e.__str__()))
-            print('请求失败,URL:%s 错误信息:%s' % url, e.__str__())
+            print('请求失败,URL:%s 错误信息:%s' % (url, e.__str__()))
             if not kwargs.get('r', False):
                 return None, '请求失败,URL:%s 错误信息:%s' % (url, e.__str__())
             else:

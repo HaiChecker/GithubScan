@@ -17,10 +17,6 @@ from task import Task
 
 app = Flask(__name__)
 
-import logging
-log = logging.getLogger('app.scan')
-log.setLevel(logging.NOTSET)
-
 # 处理线程开启
 handler = Handler()
 handler.start()
