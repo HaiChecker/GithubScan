@@ -22,8 +22,11 @@ apihelper.proxy = {'https': config['WEB']['proxy']}
 bot = telebot.TeleBot(config['TELEGRAM']['token'], threaded=False)
 
 addTaskJson = json.loads(
-    '{"query":"eos wallet","startPage":1,"endPage":100,"type":"polling","cycle":3600,"pollingPage":6,"run":true,'
-    '"openUrl":1,"payloads":[1,2,3]}')
+    '{"func":"addTask","data":{"query":"eos wallet","startPage":1,"endPage":100,"type":"polling","cycle":3600,'
+    '"pollingPage":6,"run":true, '
+    '"openUrl":1,"payloads":[1,2,3]}}')
+
+addPayloadJson = json.loads('{"func":"addPayload","data":[{"title": "EOS私钥匹配","payload": "正则1","plugin":"插件名称"}]}')
 
 bashUrl = 'http://' + config['WEB']['host'] + ':' + config['WEB']['port']
 
@@ -52,6 +55,11 @@ def payloadList():
 
 def addTask(data):
     result = requests.post(bashUrl + '/addTask', json=data)
+    return json.loads(result.text)['msg']
+
+
+def addPayload(data):
+    result = requests.post(bashUrl + '/addPayload', json=data)
     return json.loads(result.text)['msg']
 
 
@@ -180,21 +188,36 @@ def message(msg):
     if msg.chat.type == 'private':
         if msg.text == '👹 添加任务':
             bot.send_message(msg.chat.id,
-                             '字段说明:\n' + 'query # 查询条件\nstartPage # 开始页\nendPage # 结束页\ntype # polling '
-                                         '一直轮询/once 只查一次\ncycle # 如果为轮询那么间隔的秒数\npollingPage # '
-                                         '如果轮询第二次的结束页\nopenUrl # 0/1 是否打开详细页进行查找\n\n 实例:\n' +
-                             json.dumps(addTaskJson, indent=1))
+                             '字段说明:\n' + '<strong>query</strong> # 查询条件\n'
+                                         '<strong>startPage</strong> # 开始页\n'
+                                         '<strong>endPage</strong> # 结束页\n'
+                                         '<strong>type</strong> # polling 一直轮询/once 只查一次\n'
+                                         '<strong>cycle</strong> # 如果为轮询那么间隔的秒数\n'
+                                         '<strong>pollingPage</strong> # 如果轮询第二次的结束页\n'
+                                         '<strong>openUrl</strong> # 0/1 是否打开详细页进行查找\n\n 实例:\n' +
+                             '<code>' + json.dumps(addTaskJson, indent=1) + '</code>', parse_mode="HTML")
         elif msg.text == '👀 查看任务':
             bot.send_message(msg.chat.id, taskList(), parse_mode="Markdown")
         elif msg.text == '👹 添加Payload':
-
-            pass
+            j = json.dumps(addPayloadJson, indent=1)
+            bot.send_message(msg.chat.id,
+                             '请求实例:\n' +
+                             '<code>' + j + '</code>',
+                             parse_mode="HTML")
         elif msg.text == '👀 查看Payload':
             bot.send_message(msg.chat.id, payloadList(), parse_mode="Markdown")
         elif msg.text == '🛠 开启/关闭通知':
             bot.send_message(msg.chat.id, notify(msg.chat.id), parse_mode="Markdown")
         else:
-            bot.send_message(msg.chat.id, '❌指令错误')
+            try:
+                j = json.loads(msg.text)
+                func = j['func']
+                if func == 'addTask':
+                    bot.send_message(msg.chat.id, addTask(j['data']))
+                elif func == 'addPayload':
+                    bot.send_message(msg.chat.id, addPayload(j['data']))
+            except:
+                bot.send_message(msg.chat.id, '❌指令错误')
 
 
 def init():
