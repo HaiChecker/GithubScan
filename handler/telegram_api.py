@@ -201,6 +201,7 @@ def init():
     try:
         return bot.get_me()
     except Exception as e:
+        print(e.__str__())
         return None
 
 
