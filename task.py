@@ -84,7 +84,7 @@ class Task(threading.Thread):
                 url = urls[i]
                 if self.taskData.openUrl == 1:
                     # 打开内页探索模式
-                    url = 'https://raw.githubusercontent.com' + url.replace('/blob', '')
+                    url = 'http://hub.object.cool' + url.replace('/blob', '')
                     insideResult = None
                     try:
                         insideResult = g.get(url, r=True)
