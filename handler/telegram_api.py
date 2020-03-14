@@ -25,6 +25,7 @@ if config['WEB']['proxy']:
     apihelper.proxy = {'https': config['WEB']['proxy']}
 
 apihelper.API_URL = config['TELEGRAM']['apiUrl']
+apihelper.FILE_URL = config['TELEGRAM']['fileUrl']
 
 bot = telebot.TeleBot(config['TELEGRAM']['token'])
 
@@ -246,9 +247,10 @@ def plugin(msg):
     if not test_message(msg):
         return
     try:
-        bot.reply_to(msg, '❇️ 收到插件，正在验证中')
+        bot.reply_to(msg, '❇️ 正在接收中')
         file_info = bot.get_file(msg.document.file_id)
         file = bot.download_file(file_info.file_path)
+        bot.reply_to(msg, '❇️ 接收成功，开始验证插件中')
         testPlugin(file)
         my_open = open('conversion/plugins/' + msg.document.file_name, 'w')
         my_open.write(file.decode('utf-8'))
