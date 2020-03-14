@@ -66,6 +66,11 @@ def addTask(data):
     return json.loads(result.text)['msg']
 
 
+def delete_task(data):
+    result = requests.post(bashUrl + '/delTask', json=[data])
+    return json.loads(result.text)['msg']
+
+
 def addPayload(data):
     result = requests.post(bashUrl + '/addPayload', json=data)
     return json.loads(result.text)['msg']
@@ -114,12 +119,16 @@ def taskList():
             hitPair = json.dumps({'id': t['id'], 'func': 'hit'})
             hitPairStr = base64.b64encode(hitPair.encode('utf-8')).decode("utf-8")
 
+            deletePair = json.dumps({'id': t['id'], 'func': 'delete'})
+            deletePairStr = base64.b64encode(deletePair.encode('utf-8')).decode("utf-8")
+
             hitStr = '[没有命中]' if t['hit'] == 0 else '[命中列表](http://t.me/GitHubScanBot?start=%s)' % hitPairStr
 
-            resultStr.append('%s %s %s 命中:%s个 %s' % (t['query'], '🟢' if t['isRun'] else '🔴',
-                                                     ('[停止]' if t[
-                                                         'isRun'] else '[开始]') + '(http://t.me/GitHubScanBot?start=%s)' % pairStr,
-                                                     t['hit'], hitStr))
+            resultStr.append('%s %s %s 命中:%s个 %s %s' % ('🟢' if t['isRun'] else '🔴', t['query'],
+
+                                                        hitStr, t['hit'], ('[停止]' if t[
+                'isRun'] else '[开始]') + '(http://t.me/GitHubScanBot?start=%s)' % pairStr,
+                                                        '[删除](http://t.me/GitHubScanBot?start=%s)' % deletePairStr))
         return "\n".join(resultStr) if len(resultStr) > 0 else '❌ 您没有任务哦'
     else:
         return tasksJson['msg']
@@ -287,6 +296,8 @@ def startMessage(msg):
                             bot.send_message(msg.chat.id, startTask(jsonData['taskId']))
                         elif func == 'stop' and 'taskId' in jsonData:
                             bot.send_message(msg.chat.id, stopTask(jsonData['taskId']))
+                        elif func == 'delete' and 'id' in jsonData:
+                            bot.send_message(msg.chat.id, delete_task(jsonData['id']))
                         elif func == 'hit' and 'id' in jsonData:
                             hitStr = hitList(jsonData['id']).split("\n\n")
                             end = 0
@@ -306,7 +317,7 @@ def startMessage(msg):
                     else:
                         bot.send_message(msg.chat.id, '❌ 指令错误')
                 except Exception as e:
-                    logging.error(e.__str__())
+                    logging.error('start 指令错误:%s' % e.__str__())
                     bot.send_message(msg.chat.id, '❌指令错误')
 
         else:
@@ -352,7 +363,8 @@ def message(msg):
                     bot.send_message(msg.chat.id, addTask(j['data']))
                 elif func == 'addPayload':
                     bot.send_message(msg.chat.id, addPayload(j['data']))
-            except:
+            except Exception as e:
+                logging.error('指令异常:%s' % e.__str__())
                 bot.send_message(msg.chat.id, '❌指令错误')
 
 

@@ -218,6 +218,31 @@ def add_task():
     return result.success('添加任务:%s 成功' % taskData.query)
 
 
+# 任务添加
+@app.route('/delTask', methods=['POST'])
+def del_task():
+    del_task_id = request.get_json()
+    fail = []
+    engine = models.getDb()
+    Session = sessionmaker(bind=engine)
+    session = Session()
+    for task_id in del_task_id:
+        success = current_app.taskSendExchange.send({'func': 'start', 'taskId': task_id})
+        if task_id in success and not success[task_id]:
+            fail.append(task_id)
+        else:
+            if task_id in current_app.tasks:
+                current_app.taskSendExchange.detach(current_app.tasks[task_id])
+                current_app.tasks[task_id] = None
+            task = session.query(HTask).filter(HTask.id == task_id).all()
+            if len(task) > 0:
+                session.delete(task[0])
+    session.commit()
+    if len(fail) > 0:
+        return result.fail('任务' + '、'.join(fail) + " 删除失败")
+    return result.successMsg('删除任务成功')
+
+
 if __name__ == '__main__':
     print("""
         
@@ -254,5 +279,8 @@ if __name__ == '__main__':
         else:
             logging.error('Telegram 启动失败')
 
-    while True:
-        pass
+    try:
+        while True:
+            pass
+    except:
+        thread_pool.shutdown(wait=False)
