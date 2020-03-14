@@ -26,7 +26,7 @@ rExchange = exchange.Exchange()
 rExchange.subscribe(handler)
 thread_pool = ThreadPoolExecutor(500)
 
-logging.basicConfig(format='%(asctime)s - %(name)s - %(levelname)s - %(message)s', level=logging.DEBUG)
+logging.basicConfig(format='%(asctime)s - %(name)s - %(levelname)s - %(message)s', level=logging.ERROR)
 
 
 @app.route('/payloadList', methods=['GET'])

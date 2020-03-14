@@ -85,6 +85,10 @@ class Task(object):
             dom_tree_code = etree.HTML(resultList[0].text)
             # 获取存在信息泄露的链接地址
             urls = dom_tree_code.xpath('//div[@class="f4 text-normal"]/a/@href')
+            if len(urls) == 0:
+                # 未找到数据
+                logging.debug('数据循环结束，进行下一轮')
+                break
             contents = dom_tree_code.xpath(
                 '//div[@class="hx_hit-code code-list-item d-flex py-4 code-list-item-public "]')
             for i in range(0, len(urls)):
