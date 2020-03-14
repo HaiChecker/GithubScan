@@ -1,4 +1,5 @@
 import configparser
+import threading
 import time
 from queue import Queue
 from time import sleep
@@ -7,6 +8,12 @@ from lxml import etree
 import requests
 
 from handler import telegram_api
+
+import logging
+
+logging = logging.getLogger(__name__)
+
+request_lock = threading.Event()
 
 
 class Github(object):
@@ -22,6 +29,8 @@ class Github(object):
         self.session = self.login()
 
     def post(self, url, data=None, json=None, **kwargs):
+        if request_lock.is_set():
+            request_lock.wait()
         result = self.session.post(url, data, json, **kwargs)
         if result.text.find('Sign in to GitHub · GitHub') > 0:
             self.session = self.login()
@@ -30,6 +39,8 @@ class Github(object):
             return result
 
     def get(self, url, **kwargs):
+        if request_lock.is_set():
+            request_lock.wait()
         try:
             result = self.session.get(url)
             if result.text.find('Sign in to GitHub · GitHub') > 0:
@@ -38,8 +49,7 @@ class Github(object):
             else:
                 return result, ''
         except Exception as e:
-            # print('请求失败,URL:%s 错误信息:%s' % (url, e.__str__()))
-            print('请求失败,URL:%s 错误信息:%s' % (url, e.__str__()))
+            logging.error('请求失败,URL:%s 错误信息:%s' % (url, e.__str__()))
             if not kwargs.get('r', False):
                 return None, '请求失败,URL:%s 错误信息:%s' % (url, e.__str__())
             else:
@@ -52,7 +62,7 @@ class Github(object):
 
     def reLogin(self):
         self._instance = None
-        print('登录失效，重新登录')
+        logging.debug('登录失效，重新登录')
 
     # 登陆Github
     def login(self):
@@ -80,6 +90,7 @@ class Github(object):
             # 发送数据并登陆
             loginResult = s.post(session_url, data=user_data)
             if loginResult.headers.get('Location') == 'https://github.com/sessions/verified-device':
+                request_lock.set()
                 telegram_api.sendMessage('Github 登录异常，您已收到一封登录邮件。验证码输入格式:code-123456 / 重新获取格式:code-new')
                 tokenGet = s.get(verified_device)
                 tokenGetDom = etree.HTML(resp)
@@ -90,14 +101,15 @@ class Github(object):
                     res = s.post({'authenticity_token': key, 'otp': codeFuncs[1]})
                     if res.status_code == 200 or res.text.find('Incorrect verification code provided.') > -1:
                         telegram_api.sendMessage('验证码错误，尝试重新登录')
+                request_lock.clear()
 
             sleep(0.5)
             r = s.get('https://github.com/settings/profile')
             rs = r.text.find('Sign in to GitHub · GitHub')
             if rs > -1:
-                print('登录失败，正在重试')
+                logging.debug('登录失败，正在重试')
                 return self.login()
             return s
         except Exception as e:
-            print('登录失败，正在重试:', e.__str__())
+            logging.debug('登录失败，正在重试:', e.__str__())
             return self.login()

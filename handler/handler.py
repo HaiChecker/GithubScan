@@ -14,7 +14,7 @@ from handler import telegram_api
 q = Queue(1024)
 
 
-class Handler(threading.Thread):
+class Handler(object):
     plugins = {}
 
     def getPluginName(self, payloadId):
@@ -36,9 +36,8 @@ class Handler(threading.Thread):
 
     def __init__(self):
         self._session = None
-        threading.Thread.__init__(self, name='Data Handler Thread')
 
-    def run(self) -> None:
+    def run(self):
         while True:
             msg = q.get()
             taskId = msg['taskId']

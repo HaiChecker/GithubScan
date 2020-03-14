@@ -5,12 +5,17 @@ import re
 import threading
 import time
 from _md5 import md5
+from concurrent.futures import ThreadPoolExecutor, Future
 
 from lxml import etree
 from flask import current_app
 
 import github
 from handler import telegram_api
+
+import logging
+
+logging = logging.getLogger(__name__)
 
 
 def payloadPatterns(patterns, content, url):
@@ -30,22 +35,24 @@ def payloadPatterns(patterns, content, url):
     return result
 
 
-class Task(threading.Thread):
+def run(self):
+    self._running = True
+    self.func()
+    while self._running:
+        if self.taskData.pollingPage > 0 and self._running:
+            time.sleep(self.taskData.cycle)
+            self.func(False)
 
-    def __init__(self, taskData, payloads, exchange):
-        threading.Thread.__init__(self, name='Task:%d' % taskData.id)
+
+class Task(object):
+
+    def __init__(self, taskData, payloads, exchange, thread_pool: ThreadPoolExecutor):
         self.taskData = taskData
         self.payloads = payloads
         self._running = False
         self.exchange = exchange
-
-    def run(self):
-        self._running = True
-        self.func()
-        while self._running:
-            if self.taskData.pollingPage > 0 and self._running:
-                time.sleep(self.taskData.cycle)
-                self.func(False)
+        self.thread_pool = thread_pool
+        self.future: Future = None
 
     def func(self, first=True):
         global page
@@ -61,7 +68,7 @@ class Task(threading.Thread):
 
         for i in range(1, page):
             if not self._running:
-                print('任务结束')
+                logging.debug('任务结束')
                 break
 
             taskUrl = 'https://github.com/search?q=%s&type=Code&p=%s' % (self.taskData.query.replace(' ', '+'), i)
@@ -121,25 +128,44 @@ class Task(threading.Thread):
     # 停止任务
     def stop(self):
         self._running = False
-        self.join()
+        try:
+            if self.future is not None:
+                self.future.result(10)
+                self.future = None
+            return True
+        except:
+            return False
 
     # 重启任务
     def restart(self):
-        self.stop()
-        self.start()
+        if self.stop():
+            self.start()
+            return True
+        else:
+            return False
+
+    def start(self):
+        if self.future is None:
+            self.future = self.thread_pool.submit(run, self)
 
     # 任务当前信息
     def info(self):
-        pass
+        return {'taskId': self.taskData.id, 'isRuning': self._running}
 
     def send(self, msg):
         func = msg['func']
         if func == 'changeData' and msg['taskId'] == self.taskData.id:
-            self.stop()
-            self.taskData = msg['taskData']
-            self.payloads = msg['payloads']
-            self.start()
+            if self.stop():
+                self.taskData = msg['taskData']
+                self.payloads = msg['payloads']
+                self.start()
+                return True
+            else:
+                return False
         elif func == 'start' and msg['taskId'] == self.taskData.id:
             self.start()
+            return True
         elif func == 'stop' and msg['taskId'] == self.taskData.id:
-            self.stop()
+            return self.stop()
+
+        return None

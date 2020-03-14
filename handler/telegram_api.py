@@ -146,7 +146,6 @@ def callback_query(call):
         plugins = os.listdir("conversion/plugins")
         resultText = []
         for plugin in plugins:
-            print(plugin)
             if not plugin.endswith(".py") or plugin.startswith("_") or not plugin.startswith(
                     'plugin') or plugin.find('_') == -1:
                 continue
@@ -172,7 +171,6 @@ def callback_query(call):
                 if plugin_name in conversion.conversion.plugins:
                     str = conversion.conversion.plugins[plugin_name][
                         'plugin'].version()
-                    print(str)
                     result = re.findall('<v>(.*)</v>', str)
                     if len(result) > 0:
                         runVersion = result[0]
@@ -181,7 +179,7 @@ def callback_query(call):
                     plugin_name, fileVersion, runVersion, '✅ ' if fileVersion == runVersion else '❌ '))
 
             except Exception as e:
-                print('异常:%s' % e.__str__())
+                logging.error('异常:%s' % e.__str__())
                 continue
 
         if len(resultText) == 0:
@@ -257,7 +255,7 @@ def plugin(msg):
         my_open.close()
         bot.reply_to(msg, '✅ 插件导入成功')
     except Exception as e:
-        print(e.__str__())
+        logging.error(e.__str__())
         bot.reply_to(msg, '❌ 插件验证失败')
 
 
@@ -306,7 +304,7 @@ def startMessage(msg):
                     else:
                         bot.send_message(msg.chat.id, '❌ 指令错误')
                 except Exception as e:
-                    print(e.__str__())
+                    logging.error(e.__str__())
                     bot.send_message(msg.chat.id, '❌指令错误')
 
         else:
@@ -319,7 +317,6 @@ def startMessage(msg):
 
 @bot.message_handler()
 def message(msg):
-    print(msg)
     if msg.chat.type == 'private':
         if msg.text == '👹 添加任务':
             bot.send_message(msg.chat.id,
@@ -361,12 +358,8 @@ def init():
     try:
         return bot.get_me()
     except Exception as e:
-        print(e.__str__())
         return None
 
 
-thread = threading.Thread(target=bot.polling)
-
-
 def run():
-    thread.start()
+    bot.polling(none_stop=True)

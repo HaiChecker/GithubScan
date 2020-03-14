@@ -20,5 +20,11 @@ class Exchange:
             self.attach(tasks)
 
     def send(self, msg):
+        result = {}
         for subscriber in self._subscribers:
-            subscriber.send(msg)
+            success = subscriber.send(msg)
+            if success is not None:
+                info = subscriber.info()
+                result[info['taskId']] = success
+
+        return result

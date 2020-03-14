@@ -1,5 +1,8 @@
 import configparser
+import logging
 import os
+import threading
+from concurrent.futures import ThreadPoolExecutor
 
 from sqlalchemy import or_
 from sqlalchemy.orm import sessionmaker
@@ -17,11 +20,13 @@ from task import Task
 
 app = Flask(__name__)
 
-# 处理线程开启
+# 数据处理线程
 handler = Handler()
-handler.start()
 rExchange = exchange.Exchange()
 rExchange.subscribe(handler)
+thread_pool = ThreadPoolExecutor(500)
+
+logging.basicConfig(format='%(asctime)s - %(name)s - %(levelname)s - %(message)s', level=logging.DEBUG)
 
 
 @app.route('/payloadList', methods=['GET'])
@@ -72,34 +77,48 @@ def start():
     Session = sessionmaker(bind=engine)
     session = Session()
     hTasks = session.query(HTask).filter(HTask.id.in_(taskIds)).all()
+    fail = []
     for hTask in hTasks:
         if hTask.id not in current_app.tasks:
-            print('任务未存在于内存中')
+            logging.debug('任务未存在于内存中')
             taskPayload = session.query(HPayload).join(HTaskPayload, HTaskPayload.pid == HPayload.id) \
                 .filter(HTaskPayload.tid == hTask.id).all()
-            task = Task(hTask, taskPayload, rExchange)
+            task = Task(hTask, taskPayload, rExchange, thread_pool)
             current_app.tasks[hTask.id] = task
             current_app.taskSendExchange.subscribe(task)
         else:
-            print('任务存在于内存中')
-        current_app.taskSendExchange.send({'func': 'start', 'taskId': hTask.id})
-
+            logging.debug('任务存在于内存中')
+        success = current_app.taskSendExchange.send({'func': 'start', 'taskId': hTask.id})
+        if hTask.id in success and not success[hTask.id]:
+            fail.append(hTask.query)
+    if len(fail) > 0:
+        return result.fail("\n".join(fail) + "启动失败")
     return result.successMsg('启动任务成功')
 
 
 @app.route('/stop', methods=['POST'])
 def stop():
     taskIds = request.get_json()
+    fail = []
     for taskId in taskIds:
-        current_app.taskSendExchange.send({'func': 'stop', 'taskId': taskId})
+        success = current_app.taskSendExchange.send({'func': 'stop', 'taskId': taskId})
+        if taskId in success and not success[taskId]:
+            fail.append(taskId + ' 停止失败')
+
+    if len(fail) > 0:
+        return result.fail("\n".join(fail) + "停止失败")
 
     return result.successMsg('停止任务成功')
 
 
 @app.route('/reStart', methods=['POST'])
 def re_start():
-    stop()
-    start()
+    resultText = stop()
+    if resultText.find('"200"') == -1:
+        return resultText
+    resultText = start()
+    if resultText.find('"200"') == -1:
+        return resultText
     return result.successMsg('重启任务成功')
 
 
@@ -187,12 +206,14 @@ def add_task():
 
     session.commit()
 
-    t = Task(taskData, taskPayload, rExchange)
+    t = Task(taskData, taskPayload, rExchange, thread_pool)
     current_app.tasks[taskData.id] = t
     current_app.taskSendExchange.subscribe(t)
 
     if req['run']:
-        t.start()
+        success = current_app.taskSendExchange.send({'func': 'start', 'taskId': taskData.id})
+        if taskData.id in success and not success[taskData.id]:
+            return result.fail('任务启动失败')
 
     return result.success('添加任务:%s 成功' % taskData.query)
 
@@ -213,18 +234,25 @@ if __name__ == '__main__':
     port = config['WEB']['port']
     host = config['WEB']['host']
 
-    if config['TELEGRAM']['token']:
-        telegramResult = telegram_api.init()
-        if telegramResult:
-            telegram_api.run()
-            print('Telegram 机器人:%s 工作中' % telegramResult.first_name)
-        else:
-            print('Telegram 启动失败')
-
     ctx = app.app_context()
     ctx.push()
     current_app.tasks = {}
     current_app.taskSendExchange = exchange.Exchange()
     current_app.taskReceiveExchange = exchange.Exchange()
     os.environ['FLASK_ENV'] = 'deployment'
-    app.run(host=host, port=port, use_reloader=False)
+
+    # 开启数据处理
+    thread_pool.submit(handler.run)
+    # 开启API接口
+    thread_pool.submit(app.run, host, port, True, use_reloader=False)
+    # 开启Telegram
+    if config['TELEGRAM']['token']:
+        telegramResult = telegram_api.init()
+        if telegramResult:
+            logging.debug('Telegram 机器人:%s 工作中' % telegramResult.first_name)
+            thread_pool.submit(telegram_api.run)
+        else:
+            logging.error('Telegram 启动失败')
+
+    while True:
+        pass
