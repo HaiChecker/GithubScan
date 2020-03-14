@@ -9,14 +9,14 @@ class MysqlPlugin:
 
     def run(self, data, url):
         if type(data) is not str:
-            print(data + '  --  ' + type)
             return None
-        hl = base64.b32encode(url.encode('utf-8')).decode('utf-8')
+        hl = hashlib.md5()
+        hl.update(url.encode('utf-8'))
+        fileName = 'cache/' + hl.hexdigest()
 
         if data.find('localhost') > -1 or data.find('127.0.0.1'):
             return None
 
-        fileName = 'cache/' + hl
         f = open(fileName, 'r')
         line = "\n".join(f.readlines())
         if line.find('password') > -1 or line.find('port') > -1 or line.find('host') > -1:

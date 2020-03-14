@@ -106,8 +106,9 @@ class Task(object):
                             self._running = False
                             return
 
-                        hl = base64.b32encode(url.encode('utf-8')).decode('utf-8')
-                        fileName = 'cache/' + hl
+                        hl = hashlib.md5()
+                        hl.update(url.encode('utf-8'))
+                        fileName = 'cache/' + hl.hexdigest()
                         if not os.path.exists(fileName):
                             f = open(fileName, 'w')
                             f.write(insideResult[0].text)
@@ -121,8 +122,9 @@ class Task(object):
                         time.sleep(0.5)
                     else:
 
-                        hl = base64.b32encode(url.encode('utf-8')).decode('utf-8')
-                        fileName = 'cache/' + hl
+                        hl = hashlib.md5()
+                        hl.update(url.encode('utf-8'))
+                        fileName = 'cache/' + hl.hexdigest()
                         if not os.path.exists(fileName):
                             f = open(fileName, 'w')
                             f.write(contents[i])
