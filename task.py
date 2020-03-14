@@ -32,6 +32,7 @@ def payloadPatterns(patterns, content, url):
                     payloadResult.append(pData)
                 hit.append({p['id']: payloadResult})
     result['data'] = hit
+    logging.debug('匹配数据:%s' % result)
     return result
 
 
@@ -55,79 +56,81 @@ class Task(object):
         self.future: Future = None
 
     def func(self, first=True):
-        global page
-        g = github.Github()
-        patterns = []
-        for payload in self.payloads:
-            patterns.append({'pattern': re.compile(payload.payload, re.S), 'id': payload.id})
-            page = 10
-            if first:
-                page = self.taskData.endPage
-            else:
-                page = self.taskData.pollingPage
-
-        for i in range(1, page):
-            if not self._running:
-                logging.debug('任务结束')
-                break
-
-            taskUrl = 'https://github.com/search?q=%s&type=Code&p=%s' % (self.taskData.query.replace(' ', '+'), i)
-            resultList = None
-            try:
-                resultList = g.get(taskUrl, r=True)
-                if resultList[0] is None:
-                    telegram_api.sendMessage('❌ 分页数据获取异常，已停止任务\n<code>%s</code>' % resultList[1])
-            except Exception as e:
-                telegram_api.sendMessage('❌ 分页数据获取异常，已停止任务\n<code>%s</code>' % e.__str__())
-                self._running = False
-                return
-
-            dom_tree_code = etree.HTML(resultList[0].text)
-            # 获取存在信息泄露的链接地址
-            urls = dom_tree_code.xpath('//div[@class="f4 text-normal"]/a/@href')
-            if len(urls) == 0:
-                # 未找到数据
-                logging.debug('数据循环结束，进行下一轮')
-                break
-            contents = dom_tree_code.xpath(
-                '//div[@class="hx_hit-code code-list-item d-flex py-4 code-list-item-public "]')
-            for i in range(0, len(urls)):
-                url = urls[i]
-                if self.taskData.openUrl == 1:
-                    # 打开内页探索模式
-                    url = 'http://hub.object.cool' + url.replace('/blob', '')
-                    insideResult = None
-                    try:
-                        insideResult = g.get(url, r=True)
-                    except Exception as e:
-                        telegram_api.sendMessage('❌ 内页数据获取异常，已停止任务\n<code>%s</code>' % e.__str__())
-                        self._running = False
-                        return
-
-                    hl = hashlib.md5()
-                    hl.update(url.encode('utf-8'))
-                    fileName = 'cache/' + hl.hexdigest()
-                    if not os.path.exists(fileName):
-                        f = open(fileName, 'w')
-                        f.write(insideResult[0].text)
-                        f.close()
-                    result = payloadPatterns(patterns, insideResult[0].text, url)
-                    result['type'] = 'inside'
-                    result['taskId'] = self.taskData.id
-                    self.exchange.send(result)
-                    # 内页数据延迟半秒获取
-                    time.sleep(0.5)
+        try:
+            global page
+            g = github.Github()
+            patterns = []
+            for payload in self.payloads:
+                patterns.append({'pattern': re.compile(payload.payload, re.S), 'id': payload.id})
+                page = 10
+                if first:
+                    page = self.taskData.endPage
                 else:
+                    page = self.taskData.pollingPage
 
-                    hl = hashlib.md5()
-                    hl.update(url.encode('utf-8'))
-                    fileName = 'cache/' + hl.hexdigest()
-                    if not os.path.exists(fileName):
-                        f = open(fileName, 'w')
-                        f.write(contents[i])
-                        f.close()
-                    # 外页探索模式
-                    self.exchange.send({'type': 'outside', 'url': url, 'taskId': self.taskData.id})
+            for i in range(1, page):
+                if not self._running:
+                    logging.debug('任务结束')
+                    break
+
+                taskUrl = 'https://github.com/search?q=%s&type=Code&p=%s' % (self.taskData.query.replace(' ', '+'), i)
+                resultList = None
+                try:
+                    resultList = g.get(taskUrl, r=True)
+                    if resultList[0] is None:
+                        telegram_api.sendMessage('❌ 分页数据获取异常，已停止任务\n<code>%s</code>' % resultList[1])
+                except Exception as e:
+                    telegram_api.sendMessage('❌ 分页数据获取异常，已停止任务\n<code>%s</code>' % e.__str__())
+                    self._running = False
+                    return
+
+                dom_tree_code = etree.HTML(resultList[0].text)
+                # 获取存在信息泄露的链接地址
+                urls = dom_tree_code.xpath('//div[@class="f4 text-normal"]/a/@href')
+                if len(urls) == 0:
+                    # 未找到数据
+                    logging.debug('数据循环结束，进行下一轮')
+                    break
+                contents = dom_tree_code.xpath(
+                    '//div[@class="hx_hit-code code-list-item d-flex py-4 code-list-item-public "]')
+                for i in range(0, len(urls)):
+                    url = urls[i]
+                    if self.taskData.openUrl == 1:
+                        # 打开内页探索模式
+                        url = 'http://hub.object.cool' + url.replace('/blob', '')
+                        insideResult = None
+                        try:
+                            insideResult = g.get(url, r=True)
+                        except Exception as e:
+                            telegram_api.sendMessage('❌ 内页数据获取异常，已停止任务\n<code>%s</code>' % e.__str__())
+                            self._running = False
+                            return
+
+                        hl = base64.b32encode(url.encode('utf-8')).decode('utf-8')
+                        fileName = 'cache/' + hl
+                        if not os.path.exists(fileName):
+                            f = open(fileName, 'w')
+                            f.write(insideResult[0].text)
+                            f.close()
+                        result = payloadPatterns(patterns, insideResult[0].text, url)
+                        result['type'] = 'inside'
+                        result['taskId'] = self.taskData.id
+                        logging.debug('发送消息')
+                        self.exchange.send(result)
+                        # 内页数据延迟半秒获取
+                        time.sleep(0.5)
+                    else:
+
+                        hl = base64.b32encode(url.encode('utf-8')).decode('utf-8')
+                        fileName = 'cache/' + hl
+                        if not os.path.exists(fileName):
+                            f = open(fileName, 'w')
+                            f.write(contents[i])
+                            f.close()
+                        # 外页探索模式
+                        self.exchange.send({'type': 'outside', 'url': url, 'taskId': self.taskData.id})
+        except Exception as e:
+            logging.error('数据获取错误:%s' % e.__str__())
 
     # 停止任务
     def stop(self):

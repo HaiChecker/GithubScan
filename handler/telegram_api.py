@@ -142,9 +142,7 @@ def sendNotify(hit):
     chat = session.query(HConfig).filter(HConfig.k == 'chat_id').one()
 
     if chat.v != 0:
-        result = conversion.conversion.hit(hit)
-        if result is not None:
-            bot.send_message(chat.v, result)
+        bot.send_message(chat.v, hit)
 
 
 @bot.callback_query_handler(func=lambda call: True)

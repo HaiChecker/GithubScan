@@ -15,18 +15,16 @@ from flask import Flask, request, current_app
 from db import models
 from db.models import HTask, HPayload, HTaskPayload, HHit, HConfig
 from handler import telegram_api
-from handler.handler import Handler
+from handler.handler import Handler, run
 from task import Task
 
 app = Flask(__name__)
 
 # 数据处理线程
-handler = Handler()
 rExchange = exchange.Exchange()
-rExchange.subscribe(handler)
 thread_pool = ThreadPoolExecutor(500)
 
-logging.basicConfig(format='%(asctime)s - %(name)s - %(levelname)s - %(message)s', level=logging.ERROR)
+logging.basicConfig(format='%(asctime)s - %(name)s - %(levelname)s - %(message)s', level=logging.NOTSET)
 
 
 @app.route('/payloadList', methods=['GET'])
@@ -266,8 +264,10 @@ if __name__ == '__main__':
     current_app.taskReceiveExchange = exchange.Exchange()
     os.environ['FLASK_ENV'] = 'deployment'
 
+    handler = Handler()
+    rExchange.subscribe(handler)
     # 开启数据处理
-    thread_pool.submit(handler.run)
+    thread_pool.submit(run, handler)
     # 开启API接口
     thread_pool.submit(app.run, host, port, True, use_reloader=False)
     # 开启Telegram
