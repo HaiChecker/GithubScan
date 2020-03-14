@@ -14,7 +14,7 @@ class MysqlPlugin:
         hl.update(url.encode('utf-8'))
         fileName = 'cache/' + hl.hexdigest()
 
-        if data.find('localhost') > -1 or data.find('127.0.0.1'):
+        if data.find('localhost') > -1 or data.find('127.0.0.1') > -1:
             return None
 
         f = open(fileName, 'r')
