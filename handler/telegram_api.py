@@ -88,7 +88,7 @@ def hitList(id):
         hits = hitJson['data']
         resultStr = []
         for hit in hits:
-            url = 'URL:[跳转到Github](%s) \n命中:%s' % (hit['url'], hit['hit'])
+            url = 'URL:<a href="%s">跳转到Github</a> \n命中:%s' % (hit['url'], hit['hit'])
             resultStr.append(url)
         return "\n\n".join(resultStr) if len(resultStr) > 0 else '❌ 您没有命中哦'
 
@@ -301,7 +301,7 @@ def startMessage(msg):
                             end = 0
                             while len(hitStr) - 1 != end:
                                 tempSend = []
-                                for i in range(0, 19):
+                                for i in range(0, 10):
                                     if len(hitStr) - 1 == end:
                                         break
                                     else:
